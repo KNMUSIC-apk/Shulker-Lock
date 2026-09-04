@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0
-         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
 
+    <!-- Đổi tên Plugin của bạn ở đây -->
     <groupId>com.example</groupId>
-    <artifactId>ShulkerLock</artifactId>
-    <version>1.1</version>
+    <artifactId>MyPlugin</artifactId>
+    <version>1.0.0</version>
     <packaging>jar</packaging>
 
     <properties>
@@ -16,18 +16,10 @@
     </properties>
 
     <repositories>
-        <!-- Repository chính của PaperMC -->
+        <!-- Đường dẫn Repository mới và chính xác của Paper -->
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
-        </repository>
-        <!-- Repository cho các bản snapshot -->
-        <repository>
-            <id>papermc-snapshots</id>
-            <url>https://repo.papermc.io/repository/maven-snapshots/</url>
-            <snapshots>
-                <enabled>true</enabled>
-            </snapshots>
         </repository>
     </repositories>
 
@@ -35,21 +27,26 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
-            <!-- Sử dụng phiên bản 1.21.2-R0.1-SNAPSHOT hoặc thay bằng 1.21.3-R0.1-SNAPSHOT nếu cần -->
-            <version>1.21.2-R0.1-SNAPSHOT</version>
+            <!-- 
+                ĐANG DÙNG PHIÊN BẢN MỚI NHẤT (1.21.4) ĐỂ TRÁNH LỖI.
+                Nếu bạn BẮT BUỘC phải dùng 1.21.2, hãy đổi thành: <version>1.21.2-R0.1</version> (Bỏ chữ -SNAPSHOT đi vì nó đã bị xóa).
+            -->
+            <version>1.21.4-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
     </dependencies>
 
     <build>
+        <finalName>${project.artifactId}-${project.version}</finalName>
         <plugins>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.11.0</version>
+                <version>3.13.0</version>
                 <configuration>
-                    <source>${java.version}</source>
-                    <target>${java.version}</target>
+                    <!-- Paper 1.21 yêu cầu Java 21 -->
+                    <source>21</source>
+                    <target>21</target>
                 </configuration>
             </plugin>
         </plugins>
