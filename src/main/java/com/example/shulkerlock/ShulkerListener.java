@@ -1,6 +1,7 @@
 package com.example.shulkerlock;
 
 import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
 import org.bukkit.block.ShulkerBox;
@@ -8,7 +9,6 @@ import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
-import org.bukkit.event.block.BlockPlaceEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.inventory.EquipmentSlot;
@@ -26,30 +26,41 @@ public class ShulkerListener implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
+        // Kiểm tra action click phải vào block
         if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
-        if (event.getHand() != EquipmentSlot.HAND) return;
 
         Player player = event.getPlayer();
         Block block = event.getClickedBlock();
         if (block == null) return;
-        Material type = block.getType();
 
+        Material type = block.getType();
         if (!isShulker(type)) return;
 
-        // Sneak + axe = lock
-        if (player.isSneaking() && isAxe(player.getInventory().getItemInMainHand())) {
-            event.setCancelled(true);
-            plugin.getLockManager().lockShulker(player, block);
+        // Lấy item đang cầm trên tay (ưu tiên tay phải, nếu không thì tay trái)
+        ItemStack item = player.getInventory().getItemInMainHand();
+        if (!isAxe(item)) {
+            // Thử kiểm tra tay trái
+            item = player.getInventory().getItemInOffHand();
+            if (!isAxe(item)) {
+                return; // Không cầm rìu ở cả hai tay
+            }
+        }
+
+        // Kiểm tra sneak (Shift)
+        if (!player.isSneaking()) {
+            // Nếu không sneak nhưng có rìu và click phải shulker – có thể là mở bình thường, không can thiệp
             return;
         }
 
-        // Normal right-click: prevent if locked and not owner
-        if (plugin.getLockManager().isLocked(block)) {
-            UUID owner = plugin.getLockManager().getOwner(block);
-            if (!player.getUniqueId().equals(owner)) {
-                event.setCancelled(true);
-                player.sendMessage("§cThis shulker is locked by " + Bukkit.getOfflinePlayer(owner).getName());
-            }
+        // Đã đủ điều kiện: đang sneak + cầm rìu + click phải shulker
+        event.setCancelled(true); // Chặn hành động mở rương
+
+        // Gửi thông báo debug (có thể xóa sau)
+        player.sendMessage(ChatColor.GREEN + "Đang thử khóa shulker...");
+
+        boolean success = plugin.getLockManager().lockShulker(player, block);
+        if (!success) {
+            // lockShulker đã tự gửi thông báo lỗi
         }
     }
 
@@ -62,8 +73,9 @@ public class ShulkerListener implements Listener {
             Player player = event.getPlayer();
             UUID owner = plugin.getLockManager().getOwner(block);
             if (!player.getUniqueId().equals(owner)) {
+                String msg = plugin.getPluginConfig().getString("break-not-owner-message", "&cBạn không thể phá rương shulker đã bị khóa!");
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
                 event.setCancelled(true);
-                player.sendMessage("§cYou cannot break this locked shulker!");
             } else {
                 int slot = plugin.getLockManager().getSlot(block);
                 if (slot != -1) {
@@ -71,12 +83,6 @@ public class ShulkerListener implements Listener {
                 }
             }
         }
-    }
-
-    @EventHandler
-    public void onBlockPlace(BlockPlaceEvent event) {
-        // Ngăn không cho đặt shulker nếu nó đang bị khóa? Thực tế item không lưu trạng thái, nên không cần.
-        // Nhưng nếu có mod cho phép copy block, có thể bổ sung sau.
     }
 
     @EventHandler
@@ -88,19 +94,22 @@ public class ShulkerListener implements Listener {
             Player player = (Player) event.getPlayer();
             UUID owner = plugin.getLockManager().getOwner(block);
             if (!player.getUniqueId().equals(owner)) {
+                String msg = plugin.getPluginConfig().getString("not-owner-message", "&cRương shulker này bị khóa bởi {owner}");
+                msg = msg.replace("{owner}", Bukkit.getOfflinePlayer(owner).getName());
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
                 event.setCancelled(true);
-                player.sendMessage("§cThis shulker is locked!");
             }
         }
     }
 
     private boolean isShulker(Material mat) {
-        return mat.name().endsWith("_SHULKER_BOX");
+        String name = mat.name();
+        return name.endsWith("_SHULKER_BOX");
     }
 
     private boolean isAxe(ItemStack item) {
-        if (item == null) return false;
-        Material mat = item.getType();
-        return mat.name().endsWith("_AXE");
+        if (item == null || item.getType() == Material.AIR) return false;
+        String name = item.getType().name();
+        return name.endsWith("_AXE");
     }
 }
