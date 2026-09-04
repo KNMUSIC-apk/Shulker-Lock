@@ -1,0 +1,57 @@
+# ============================================
+# ShulkerLock - Cấu hình chính
+# ============================================
+
+# Số lượng shulker tối đa mỗi người chơi có thể khóa
+max-locks: 3
+
+# Định dạng tên hiển thị của shulker khi bị khóa
+# Các biến: {player} - tên người chơi, {slot} - số thứ tự
+lock-display-name: "&6Shulker Lock &f[{player}] &e#{slot}"
+
+# Thông báo khi khóa thành công
+lock-success-message: "&aĐã khóa rương shulker thành công! (#{slot})"
+
+# Thông báo khi mở khóa thành công
+unlock-success-message: "&aĐã mở khóa shulker #{slot}!"
+
+# Thông báo lỗi khi shulker đã bị khóa
+already-locked-message: "&cRương shulker này đã bị khóa rồi!"
+
+# Thông báo khi đạt giới hạn khóa
+max-locks-message: "&cBạn đã khóa tối đa {max} shulker! Hãy mở khóa một cái trước."
+
+# Thông báo khi không có quyền mở
+not-owner-message: "&cRương shulker này bị khóa bởi {owner}"
+
+# Thông báo khi không thể phá
+break-not-owner-message: "&cBạn không thể phá rương shulker đã bị khóa!"
+
+# Thông báo khi cố gắng mở menu slot rỗng
+empty-slot-message: "&cSlot này trống hoặc chưa khóa."
+
+# Tiêu đề menu
+menu-title: "&6&lShulker Lock &f&lMenu"
+
+# Vật liệu trang trí menu
+menu-border-material: "BLUE_STAINED_GLASS_PANE"
+menu-border-material-secondary: "CYAN_STAINED_GLASS_PANE"
+
+# Vật liệu cho slot đã khóa
+locked-slot-material: "YELLOW_SHULKER_BOX"
+# Vật liệu cho slot trống
+empty-slot-material: "LIGHT_GRAY_SHULKER_BOX"
+
+# Enchant để đánh dấu slot đã khóa (ẩn hiệu ứng)
+locked-enchant: "UNBREAKING"
+
+# Có hiển thị vị trí của shulker trong menu không?
+show-location-in-menu: true
+
+# Hướng dẫn trong menu
+info-item-material: "ENDER_EYE"
+info-item-name: "&b&lCách khóa?"
+info-item-lore:
+  - "&7Ngồi xuống (Shift) + Click phải"
+  - "&7với bất kỳ cây rìu nào lên"
+  - "&7một rương shulker để khóa nó."
