@@ -16,9 +16,18 @@
     </properties>
 
     <repositories>
+        <!-- Repository chính của PaperMC -->
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <!-- Repository cho các bản snapshot -->
+        <repository>
+            <id>papermc-snapshots</id>
+            <url>https://repo.papermc.io/repository/maven-snapshots/</url>
+            <snapshots>
+                <enabled>true</enabled>
+            </snapshots>
         </repository>
     </repositories>
 
@@ -26,6 +35,7 @@
         <dependency>
             <groupId>io.papermc.paper</groupId>
             <artifactId>paper-api</artifactId>
+            <!-- Sử dụng phiên bản 1.21.2-R0.1-SNAPSHOT hoặc thay bằng 1.21.3-R0.1-SNAPSHOT nếu cần -->
             <version>1.21.2-R0.1-SNAPSHOT</version>
             <scope>provided</scope>
         </dependency>
