@@ -1,0 +1,11 @@
+name: ShulkerLock
+version: 1.1
+main: com.example.shulkerlock.ShulkerLockPlugin
+api-version: 1.21
+commands:
+  shulkermenu:
+    description: Open the Shulker Lock menu.
+    usage: /shulkermenu
+  sm:
+    description: Open the Shulker Lock menu.
+    usage: /sm
