@@ -31,10 +31,9 @@ public class LockManager {
     private final Map<UUID, LockInfo> lockInfoMap = new ConcurrentHashMap<>();
     
     // ==========================================
-    // ĐÃ SỬA: Đổi tên thành lockKey và chuyển thành public
-    // Để ShulkerLister có thể truy cập trực tiếp (hết lỗi private access)
+    // ĐÃ SỬA: Đặt là public, BỎ final để ShulkerLister tự do truy cập
     // ==========================================
-    public final Map<BlockKey, UUID> lockKey = new ConcurrentHashMap<>(); 
+    public Map<BlockKey, UUID> lockKey = new ConcurrentHashMap<>(); 
 
     // Keys cho PersistentDataContainer
     private final NamespacedKey lockIdKey;
@@ -72,7 +71,6 @@ public class LockManager {
                     String lockIdStr = config.getString("players." + uuidStr + "." + slotStr);
                     if (lockIdStr == null) continue;
                     UUID lockId = UUID.fromString(lockIdStr);
-                    // Đọc thêm thông tin vị trí
                     String locStr = config.getString("locks." + lockIdStr + ".location");
                     BlockKey key = null;
                     if (locStr != null) {
@@ -100,7 +98,6 @@ public class LockManager {
             String uuidStr = entry.getKey().toString();
             for (Map.Entry<Integer, UUID> slotEntry : entry.getValue().entrySet()) {
                 config.set("players." + uuidStr + "." + slotEntry.getKey(), slotEntry.getValue().toString());
-                // Lưu thông tin lock
                 UUID lockId = slotEntry.getValue();
                 LockInfo info = lockInfoMap.get(lockId);
                 if (info != null) {
@@ -121,7 +118,6 @@ public class LockManager {
     // Khóa một shulker block
     public synchronized boolean lockShulker(Player player, Block block) {
         UUID uuid = player.getUniqueId();
-        // Kiểm tra xem block đã có lock chưa
         BlockKey key = new BlockKey(block.getLocation());
         if (lockKey.containsKey(key)) {
             String msg = plugin.getPluginConfig().getString("already-locked-message", "&cThis shulker is already locked!");
@@ -129,7 +125,6 @@ public class LockManager {
             return false;
         }
 
-        // Kiểm tra giới hạn slot
         Map<Integer, UUID> slots = playerLocks.computeIfAbsent(uuid, k -> new HashMap<>());
         int maxLocks = plugin.getPluginConfig().getInt("max-locks", 3);
         if (slots.size() >= maxLocks) {
@@ -139,20 +134,16 @@ public class LockManager {
             return false;
         }
 
-        // Tìm slot trống
         int slot = 1;
         while (slots.containsKey(slot)) slot++;
 
-        // Tạo lockId
         UUID lockId = UUID.randomUUID();
         slots.put(slot, lockId);
 
-        // Lưu thông tin lock
         LockInfo info = new LockInfo(uuid, slot, key);
         lockInfoMap.put(lockId, info);
         lockKey.put(key, lockId);
 
-        // Ghi persistent data vào block state và item (nếu có thể)
         if (block.getState() instanceof ShulkerBox shulker) {
             PersistentDataContainer pdc = shulker.getPersistentDataContainer();
             pdc.set(lockIdKey, PersistentDataType.STRING, lockId.toString());
@@ -160,7 +151,6 @@ public class LockManager {
             pdc.set(slotKey, PersistentDataType.INTEGER, slot);
             shulker.update();
 
-            // Đổi tên
             String format = plugin.getPluginConfig().getString("lock-display-name", "&6[shulker lock &f{player} &e#{slot}&6]");
             String name = ChatColor.translateAlternateColorCodes('&',
                     format.replace("{player}", player.getName()).replace("{slot}", String.valueOf(slot)));
@@ -190,14 +180,13 @@ public class LockManager {
         LockInfo info = lockInfoMap.remove(lockId);
         if (info != null && info.location != null) {
             lockKey.remove(info.location);
-            // Xóa persistent data trên block
             Block block = info.location.toBlock();
             if (block != null && block.getState() instanceof ShulkerBox shulker) {
                 PersistentDataContainer pdc = shulker.getPersistentDataContainer();
                 pdc.remove(lockIdKey);
                 pdc.remove(ownerKey);
                 pdc.remove(slotKey);
-                shulker.setCustomName(null); // trả về tên gốc
+                shulker.setCustomName(null);
                 shulker.update();
             }
         }
@@ -214,21 +203,18 @@ public class LockManager {
         return true;
     }
 
-    // Khi block bị phá: xóa khỏi lockKey nhưng giữ trong playerLocks
     public synchronized void onBlockBreak(Block block) {
         BlockKey key = new BlockKey(block.getLocation());
         UUID lockId = lockKey.remove(key);
         if (lockId != null) {
             LockInfo info = lockInfoMap.get(lockId);
             if (info != null) {
-                info.location = null; // vị trí không còn hợp lệ
+                info.location = null;
             }
-            // Lưu lại để cập nhật file (loại bỏ location)
             save();
         }
     }
 
-    // Khi block được đặt: khôi phục lock từ item
     public synchronized void onBlockPlace(Block block, ItemStack item) {
         if (item == null || !item.hasItemMeta()) return;
         ItemMeta meta = item.getItemMeta();
@@ -239,23 +225,19 @@ public class LockManager {
         UUID lockId = UUID.fromString(lockIdStr);
         LockInfo info = lockInfoMap.get(lockId);
         if (info == null) {
-            // Nếu không tìm thấy trong memory, có thể đã bị xóa khỏi file do bug, bỏ qua
             return;
         }
 
-        // Cập nhật vị trí mới
         BlockKey newKey = new BlockKey(block.getLocation());
         info.location = newKey;
         lockKey.put(newKey, lockId);
 
-        // Cập nhật lại block state
         if (block.getState() instanceof ShulkerBox shulker) {
             PersistentDataContainer blockPdc = shulker.getPersistentDataContainer();
             blockPdc.set(lockIdKey, PersistentDataType.STRING, lockId.toString());
             blockPdc.set(ownerKey, PersistentDataType.STRING, info.owner.toString());
             blockPdc.set(slotKey, PersistentDataType.INTEGER, info.slot);
 
-            // Đặt lại tên
             Player owner = Bukkit.getPlayer(info.owner);
             String ownerName = (owner != null) ? owner.getName() : Bukkit.getOfflinePlayer(info.owner).getName();
             String format = plugin.getPluginConfig().getString("lock-display-name", "&6[shulker lock &f{player} &e#{slot}&6]");
@@ -268,12 +250,10 @@ public class LockManager {
         save();
     }
 
-    // Kiểm tra block có lock không
     public boolean isLocked(Block block) {
         return lockKey.containsKey(new BlockKey(block.getLocation()));
     }
 
-    // Lấy owner của block
     public UUID getOwner(Block block) {
         UUID lockId = lockKey.get(new BlockKey(block.getLocation()));
         if (lockId == null) return null;
@@ -281,7 +261,6 @@ public class LockManager {
         return info != null ? info.owner : null;
     }
 
-    // Lấy slot của block
     public int getSlot(Block block) {
         UUID lockId = lockKey.get(new BlockKey(block.getLocation()));
         if (lockId == null) return -1;
@@ -289,12 +268,10 @@ public class LockManager {
         return info != null ? info.slot : -1;
     }
 
-    // Lấy danh sách slot của player
     public Map<Integer, UUID> getPlayerSlots(Player player) {
         return playerLocks.getOrDefault(player.getUniqueId(), new HashMap<>());
     }
 
-    // Lấy thông tin lock để hiển thị
     public LockInfo getLockInfo(UUID lockId) {
         return lockInfoMap.get(lockId);
     }
@@ -311,7 +288,6 @@ public class LockManager {
         }
     }
 
-    // BlockKey giữ nguyên như cũ
     public static class BlockKey {
         private final String world;
         private final int x, y, z;
