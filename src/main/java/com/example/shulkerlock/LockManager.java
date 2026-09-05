@@ -28,7 +28,6 @@ public class LockManager {
     public LockManager(ShulkerLockPlugin plugin) {
         this.plugin = plugin;
         this.dataFile = new File(plugin.getDataFolder(), "locks.yml");
-        // Tạo thư mục và file nếu chưa có
         if (!dataFile.exists()) {
             dataFile.getParentFile().mkdirs();
             try {
@@ -121,6 +120,7 @@ public class LockManager {
         return true;
     }
 
+    // Dùng khi mở khóa từ menu, có thông báo
     public synchronized boolean unlockShulker(Player player, int slot) {
         UUID uuid = player.getUniqueId();
         Map<Integer, BlockKey> slots = playerLocks.get(uuid);
@@ -151,6 +151,31 @@ public class LockManager {
         return true;
     }
 
+    // Dùng khi chủ sở hữu phá rương, không thông báo
+    public synchronized boolean unlockSilently(Player player, int slot) {
+        UUID uuid = player.getUniqueId();
+        Map<Integer, BlockKey> slots = playerLocks.get(uuid);
+        if (slots == null || !slots.containsKey(slot)) {
+            return false;
+        }
+
+        BlockKey key = slots.remove(slot);
+        lockLookup.remove(key);
+
+        Block block = key.toBlock();
+        if (block != null && block.getState() instanceof ShulkerBox shulker) {
+            shulker.setCustomName(null);
+            shulker.update();
+        }
+
+        if (slots.isEmpty()) {
+            playerLocks.remove(uuid);
+        }
+
+        save();
+        return true;
+    }
+
     public boolean isLocked(Block block) {
         return lockLookup.containsKey(new BlockKey(block.getLocation()));
     }
@@ -169,7 +194,6 @@ public class LockManager {
         return playerLocks.getOrDefault(player.getUniqueId(), new HashMap<>());
     }
 
-    // Lấy thông tin vị trí của một slot để hiển thị trong menu
     public String getSlotLocation(Player player, int slot) {
         Map<Integer, BlockKey> slots = playerLocks.get(player.getUniqueId());
         if (slots == null || !slots.containsKey(slot)) return null;
