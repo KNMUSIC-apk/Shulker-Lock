@@ -13,7 +13,6 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.block.BlockBreakEvent;
 import org.bukkit.event.inventory.InventoryOpenEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
-import org.bukkit.inventory.EquipmentSlot;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.UUID;
@@ -28,67 +27,43 @@ public class ShulkerListener implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        // Chỉ xử lý click phải vào block
-        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
-            return;
-        }
+        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
 
         Player player = event.getPlayer();
         Block block = event.getClickedBlock();
         if (block == null) return;
+        if (!isShulker(block.getType())) return;
 
-        // Kiểm tra có phải shulker không (đã sửa)
-        if (!isShulker(block.getType())) {
-            return;
+        // Kiểm tra lock nếu shulker đã bị khóa và không phải chủ
+        if (plugin.getLockManager().isLocked(block)) {
+            UUID owner = plugin.getLockManager().getOwner(block);
+            if (!player.getUniqueId().equals(owner)) {
+                event.setUseInteractedBlock(Event.Result.DENY);
+                String msg = plugin.getPluginConfig().getString("not-owner-message", "&cRương shulker này bị khóa bởi {owner}");
+                msg = msg.replace("{owner}", Bukkit.getOfflinePlayer(owner).getName());
+                player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
+                return;
+            }
         }
 
-        // ===== DEBUG =====
-        player.sendMessage(ChatColor.GRAY + "[ShulkerLock] Bạn vừa click vào shulker!");
-        Bukkit.getLogger().info("[ShulkerLock] " + player.getName() + " click shulker tại " + block.getLocation());
+        // Nếu đang sneak, kiểm tra rìu (cả hai tay)
+        if (player.isSneaking()) {
+            ItemStack main = player.getInventory().getItemInMainHand();
+            ItemStack off = player.getInventory().getItemInOffHand();
+            boolean hasAxe = isAxe(main) || isAxe(off);
 
-        // Kiểm tra sneak
-        if (!player.isSneaking()) {
-            player.sendMessage(ChatColor.GRAY + "[ShulkerLock] Bạn không ngồi (sneak), bỏ qua khóa.");
-            // Vẫn kiểm tra lock nếu không phải chủ sở hữu
-            if (plugin.getLockManager().isLocked(block)) {
-                UUID owner = plugin.getLockManager().getOwner(block);
-                if (!player.getUniqueId().equals(owner)) {
-                    event.setUseInteractedBlock(Event.Result.DENY);
-                    String msg = plugin.getPluginConfig().getString("not-owner-message", "&cRương shulker này bị khóa bởi {owner}");
-                    msg = msg.replace("{owner}", Bukkit.getOfflinePlayer(owner).getName());
-                    player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
+            if (hasAxe) {
+                // Chặn mở rương
+                event.setUseInteractedBlock(Event.Result.DENY);
+                // Gọi lock
+                boolean success = plugin.getLockManager().lockShulker(player, block);
+                if (success) {
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                } else {
                     player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
                 }
             }
-            return;
-        }
-
-        // Đang sneak: kiểm tra rìu
-        ItemStack item = null;
-        EquipmentSlot hand = event.getHand();
-        if (hand == EquipmentSlot.HAND) {
-            item = player.getInventory().getItemInMainHand();
-        } else if (hand == EquipmentSlot.OFF_HAND) {
-            item = player.getInventory().getItemInOffHand();
-        }
-
-        if (!isAxe(item)) {
-            player.sendMessage(ChatColor.GRAY + "[ShulkerLock] Bạn không cầm rìu! (tay: " + hand + ")");
-            return;
-        }
-
-        // ---- Đủ điều kiện: sneak + rìu ----
-        event.setUseInteractedBlock(Event.Result.DENY); // Ngăn mở rương
-
-        Bukkit.getLogger().info("[ShulkerLock] " + player.getName() + " ĐANG KHÓA shulker tại " + block.getLocation());
-        player.sendMessage(ChatColor.GREEN + "[ShulkerLock] Đang khóa...");
-
-        boolean success = plugin.getLockManager().lockShulker(player, block);
-
-        if (success) {
-            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
-        } else {
-            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
         }
     }
 
@@ -106,11 +81,12 @@ public class ShulkerListener implements Listener {
                 event.setCancelled(true);
                 player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             } else {
+                // Cho phép phá, nhưng không thông báo unlock, chỉ xóa lock thầm lặng
                 int slot = plugin.getLockManager().getSlot(block);
                 if (slot != -1) {
-                    plugin.getLockManager().unlockShulker(player, slot);
-                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+                    plugin.getLockManager().unlockSilently(player, slot);
                 }
+                // không thông báo, không âm thanh (hoặc có thể phát âm thanh phá bình thường)
             }
         }
     }
@@ -134,7 +110,6 @@ public class ShulkerListener implements Listener {
     }
 
     private boolean isShulker(Material mat) {
-        // Bao gồm cả SHULKER_BOX (không màu) và các biến thể màu
         return mat.name().contains("SHULKER_BOX");
     }
 
