@@ -3,6 +3,7 @@ package com.example.shulkerlock;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.Material;
+import org.bukkit.Sound;
 import org.bukkit.block.Block;
 import org.bukkit.block.ShulkerBox;
 import org.bukkit.entity.Player;
@@ -26,41 +27,51 @@ public class ShulkerListener implements Listener {
 
     @EventHandler
     public void onPlayerInteract(PlayerInteractEvent event) {
-        // Kiểm tra action click phải vào block
-        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) return;
+        // Chỉ xử lý click phải vào block
+        if (event.getAction() != org.bukkit.event.block.Action.RIGHT_CLICK_BLOCK) {
+            return;
+        }
 
         Player player = event.getPlayer();
         Block block = event.getClickedBlock();
         if (block == null) return;
 
-        Material type = block.getType();
-        if (!isShulker(type)) return;
+        // Kiểm tra có phải shulker không
+        if (!isShulker(block.getType())) return;
 
-        // Lấy item đang cầm trên tay (ưu tiên tay phải, nếu không thì tay trái)
-        ItemStack item = player.getInventory().getItemInMainHand();
-        if (!isAxe(item)) {
-            // Thử kiểm tra tay trái
-            item = player.getInventory().getItemInOffHand();
-            if (!isAxe(item)) {
-                return; // Không cầm rìu ở cả hai tay
-            }
+        // Kiểm tra người chơi có đang ngồi (sneak) không
+        if (!player.isSneaking()) {
+            return; // Không sneak -> không khóa, nhưng vẫn cho mở bình thường
         }
 
-        // Kiểm tra sneak (Shift)
-        if (!player.isSneaking()) {
-            // Nếu không sneak nhưng có rìu và click phải shulker – có thể là mở bình thường, không can thiệp
+        // Lấy item ở tay đang click (tay phải hoặc trái)
+        EquipmentSlot hand = event.getHand();
+        ItemStack item = null;
+        if (hand == EquipmentSlot.HAND) {
+            item = player.getInventory().getItemInMainHand();
+        } else if (hand == EquipmentSlot.OFF_HAND) {
+            item = player.getInventory().getItemInOffHand();
+        }
+
+        // Nếu không có item hoặc không phải rìu -> thoát
+        if (!isAxe(item)) {
             return;
         }
 
-        // Đã đủ điều kiện: đang sneak + cầm rìu + click phải shulker
-        event.setCancelled(true); // Chặn hành động mở rương
+        // Đã đủ điều kiện: sneak + rìu + click phải shulker
+        event.setCancelled(true); // Chặn mở rương
 
-        // Gửi thông báo debug (có thể xóa sau)
-        player.sendMessage(ChatColor.GREEN + "Đang thử khóa shulker...");
+        // Debug
+        Bukkit.getLogger().info("[ShulkerLock] " + player.getName() + " đang cố khóa shulker tại " + block.getLocation());
 
+        // Thực hiện khóa
         boolean success = plugin.getLockManager().lockShulker(player, block);
-        if (!success) {
-            // lockShulker đã tự gửi thông báo lỗi
+
+        // Phát âm thanh
+        if (success) {
+            player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
+        } else {
+            player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
         }
     }
 
@@ -76,10 +87,12 @@ public class ShulkerListener implements Listener {
                 String msg = plugin.getPluginConfig().getString("break-not-owner-message", "&cBạn không thể phá rương shulker đã bị khóa!");
                 player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
                 event.setCancelled(true);
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             } else {
                 int slot = plugin.getLockManager().getSlot(block);
                 if (slot != -1) {
                     plugin.getLockManager().unlockShulker(player, slot);
+                    player.playSound(player.getLocation(), Sound.ENTITY_PLAYER_LEVELUP, 1.0f, 1.0f);
                 }
             }
         }
@@ -98,18 +111,17 @@ public class ShulkerListener implements Listener {
                 msg = msg.replace("{owner}", Bukkit.getOfflinePlayer(owner).getName());
                 player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
                 event.setCancelled(true);
+                player.playSound(player.getLocation(), Sound.ENTITY_VILLAGER_NO, 1.0f, 1.0f);
             }
         }
     }
 
     private boolean isShulker(Material mat) {
-        String name = mat.name();
-        return name.endsWith("_SHULKER_BOX");
+        return mat.name().endsWith("_SHULKER_BOX");
     }
 
     private boolean isAxe(ItemStack item) {
         if (item == null || item.getType() == Material.AIR) return false;
-        String name = item.getType().name();
-        return name.endsWith("_AXE");
+        return item.getType().name().endsWith("_AXE");
     }
 }
