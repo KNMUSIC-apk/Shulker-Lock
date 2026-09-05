@@ -31,7 +31,7 @@ public class LockManager {
     private final Map<UUID, LockInfo> lockInfoMap = new ConcurrentHashMap<>();
     
     // ==========================================
-    // ĐÃ SỬA: Đổi tên blockLockMap thành lockKey và chuyển thành public
+    // ĐÃ SỬA: Đổi tên thành lockKey và chuyển thành public
     // Để ShulkerLister có thể truy cập trực tiếp (hết lỗi private access)
     // ==========================================
     public final Map<BlockKey, UUID> lockKey = new ConcurrentHashMap<>(); 
