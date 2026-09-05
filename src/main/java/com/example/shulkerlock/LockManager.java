@@ -29,8 +29,12 @@ public class LockManager {
     private final Map<UUID, Map<Integer, UUID>> playerLocks = new ConcurrentHashMap<>();
     // lockId -> LockInfo
     private final Map<UUID, LockInfo> lockInfoMap = new ConcurrentHashMap<>();
-    // BlockKey -> lockId (để truy vấn nhanh khi tương tác)
-    private final Map<BlockKey, UUID> blockLockMap = new ConcurrentHashMap<>();
+    
+    // ==========================================
+    // ĐÃ SỬA: Đổi tên blockLockMap thành lockKey và chuyển thành public
+    // Để ShulkerLister có thể truy cập trực tiếp (hết lỗi private access)
+    // ==========================================
+    public final Map<BlockKey, UUID> lockKey = new ConcurrentHashMap<>(); 
 
     // Keys cho PersistentDataContainer
     private final NamespacedKey lockIdKey;
@@ -57,7 +61,7 @@ public class LockManager {
         config = YamlConfiguration.loadConfiguration(dataFile);
         playerLocks.clear();
         lockInfoMap.clear();
-        blockLockMap.clear();
+        lockKey.clear();
 
         if (config.contains("players")) {
             for (String uuidStr : config.getConfigurationSection("players").getKeys(false)) {
@@ -80,7 +84,7 @@ public class LockManager {
                     LockInfo info = new LockInfo(owner, slot, key);
                     lockInfoMap.put(lockId, info);
                     if (key != null) {
-                        blockLockMap.put(key, lockId);
+                        lockKey.put(key, lockId);
                     }
                 }
                 if (!slots.isEmpty()) {
@@ -119,7 +123,7 @@ public class LockManager {
         UUID uuid = player.getUniqueId();
         // Kiểm tra xem block đã có lock chưa
         BlockKey key = new BlockKey(block.getLocation());
-        if (blockLockMap.containsKey(key)) {
+        if (lockKey.containsKey(key)) {
             String msg = plugin.getPluginConfig().getString("already-locked-message", "&cThis shulker is already locked!");
             player.sendMessage(ChatColor.translateAlternateColorCodes('&', msg));
             return false;
@@ -146,7 +150,7 @@ public class LockManager {
         // Lưu thông tin lock
         LockInfo info = new LockInfo(uuid, slot, key);
         lockInfoMap.put(lockId, info);
-        blockLockMap.put(key, lockId);
+        lockKey.put(key, lockId);
 
         // Ghi persistent data vào block state và item (nếu có thể)
         if (block.getState() instanceof ShulkerBox shulker) {
@@ -185,7 +189,7 @@ public class LockManager {
         UUID lockId = slots.remove(slot);
         LockInfo info = lockInfoMap.remove(lockId);
         if (info != null && info.location != null) {
-            blockLockMap.remove(info.location);
+            lockKey.remove(info.location);
             // Xóa persistent data trên block
             Block block = info.location.toBlock();
             if (block != null && block.getState() instanceof ShulkerBox shulker) {
@@ -210,10 +214,10 @@ public class LockManager {
         return true;
     }
 
-    // Khi block bị phá: xóa khỏi blockLockMap nhưng giữ trong playerLocks
+    // Khi block bị phá: xóa khỏi lockKey nhưng giữ trong playerLocks
     public synchronized void onBlockBreak(Block block) {
         BlockKey key = new BlockKey(block.getLocation());
-        UUID lockId = blockLockMap.remove(key);
+        UUID lockId = lockKey.remove(key);
         if (lockId != null) {
             LockInfo info = lockInfoMap.get(lockId);
             if (info != null) {
@@ -242,7 +246,7 @@ public class LockManager {
         // Cập nhật vị trí mới
         BlockKey newKey = new BlockKey(block.getLocation());
         info.location = newKey;
-        blockLockMap.put(newKey, lockId);
+        lockKey.put(newKey, lockId);
 
         // Cập nhật lại block state
         if (block.getState() instanceof ShulkerBox shulker) {
@@ -266,12 +270,12 @@ public class LockManager {
 
     // Kiểm tra block có lock không
     public boolean isLocked(Block block) {
-        return blockLockMap.containsKey(new BlockKey(block.getLocation()));
+        return lockKey.containsKey(new BlockKey(block.getLocation()));
     }
 
     // Lấy owner của block
     public UUID getOwner(Block block) {
-        UUID lockId = blockLockMap.get(new BlockKey(block.getLocation()));
+        UUID lockId = lockKey.get(new BlockKey(block.getLocation()));
         if (lockId == null) return null;
         LockInfo info = lockInfoMap.get(lockId);
         return info != null ? info.owner : null;
@@ -279,7 +283,7 @@ public class LockManager {
 
     // Lấy slot của block
     public int getSlot(Block block) {
-        UUID lockId = blockLockMap.get(new BlockKey(block.getLocation()));
+        UUID lockId = lockKey.get(new BlockKey(block.getLocation()));
         if (lockId == null) return -1;
         LockInfo info = lockInfoMap.get(lockId);
         return info != null ? info.slot : -1;
