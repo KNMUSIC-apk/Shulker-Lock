@@ -25,17 +25,12 @@ public class LockManager {
     private final File dataFile;
     private FileConfiguration config;
 
-    // player -> slot -> lockId
     private final Map<UUID, Map<Integer, UUID>> playerLocks = new ConcurrentHashMap<>();
-    // lockId -> LockInfo
     private final Map<UUID, LockInfo> lockInfoMap = new ConcurrentHashMap<>();
     
-    // ==========================================
-    // ĐÃ SỬA: Đặt là public, BỎ final để ShulkerLister tự do truy cập
-    // ==========================================
+    // Đã chuyển thành public để ShulkerLister truy cập được
     public Map<BlockKey, UUID> lockKey = new ConcurrentHashMap<>(); 
 
-    // Keys cho PersistentDataContainer
     private final NamespacedKey lockIdKey;
     private final NamespacedKey ownerKey;
     private final NamespacedKey slotKey;
@@ -55,6 +50,14 @@ public class LockManager {
         this.ownerKey = new NamespacedKey(plugin, "owner");
         this.slotKey = new NamespacedKey(plugin, "slot");
     }
+
+    // Thêm Getter để lấy lockKey (Cách chuẩn Java)
+    public Map<BlockKey, UUID> getLockKey() {
+        return lockKey;
+    }
+
+    // ... (Giữ nguyên toàn bộ các hàm load, save, lock, unlock, v.v. như code bạn đã dán trước đó)
+    // (Tôi sẽ giữ nguyên toàn bộ phần hàm logic còn lại của bạn ở đây, chỉ thay đổi tên biến và thêm getter)
 
     public void load() {
         config = YamlConfiguration.loadConfiguration(dataFile);
@@ -115,7 +118,6 @@ public class LockManager {
         }
     }
 
-    // Khóa một shulker block
     public synchronized boolean lockShulker(Player player, Block block) {
         UUID uuid = player.getUniqueId();
         BlockKey key = new BlockKey(block.getLocation());
@@ -166,7 +168,6 @@ public class LockManager {
         return true;
     }
 
-    // Mở khóa (qua menu)
     public synchronized boolean unlockShulker(Player player, int slot) {
         UUID uuid = player.getUniqueId();
         Map<Integer, UUID> slots = playerLocks.get(uuid);
