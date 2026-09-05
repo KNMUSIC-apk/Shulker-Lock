@@ -28,7 +28,7 @@ public class LockManager {
     private final Map<UUID, Map<Integer, UUID>> playerLocks = new ConcurrentHashMap<>();
     private final Map<UUID, LockInfo> lockInfoMap = new ConcurrentHashMap<>();
     
-    // Đã chuyển thành public để ShulkerLister truy cập được
+    // Đã chuyển thành public để ShulkerLister truy cập được (đã hết lỗi private)
     public Map<BlockKey, UUID> lockKey = new ConcurrentHashMap<>(); 
 
     private final NamespacedKey lockIdKey;
@@ -51,13 +51,62 @@ public class LockManager {
         this.slotKey = new NamespacedKey(plugin, "slot");
     }
 
-    // Thêm Getter để lấy lockKey (Cách chuẩn Java)
+    // Hàm Getter để lấy lockKey
     public Map<BlockKey, UUID> getLockKey() {
         return lockKey;
     }
 
-    // ... (Giữ nguyên toàn bộ các hàm load, save, lock, unlock, v.v. như code bạn đã dán trước đó)
-    // (Tôi sẽ giữ nguyên toàn bộ phần hàm logic còn lại của bạn ở đây, chỉ thay đổi tên biến và thêm getter)
+    // =================================================================
+    // HÀM MỚI ĐƯỢC THÊM VÀO ĐỂ SỬA LỖI "cannot find symbol"
+    // =================================================================
+    
+    // Lấy vị trí (Block) của một ổ khóa theo Player và Slot
+    public Block getSlotLocation(Player player, int slot) {
+        UUID uuid = player.getUniqueId();
+        Map<Integer, UUID> slots = playerLocks.get(uuid);
+        if (slots == null) return null;
+        
+        UUID lockId = slots.get(slot);
+        if (lockId == null) return null;
+        
+        LockInfo info = lockInfoMap.get(lockId);
+        if (info != null && info.location != null) {
+            return info.location.toBlock();
+        }
+        return null;
+    }
+
+    // Mở khóa thầm lặng (Không gửi tin nhắn cho người chơi)
+    public synchronized boolean unlockSilently(Player player, int slot) {
+        UUID uuid = player.getUniqueId();
+        Map<Integer, UUID> slots = playerLocks.get(uuid);
+        if (slots == null || !slots.containsKey(slot)) {
+            return false;
+        }
+
+        UUID lockId = slots.remove(slot);
+        LockInfo info = lockInfoMap.remove(lockId);
+        if (info != null && info.location != null) {
+            lockKey.remove(info.location);
+            Block block = info.location.toBlock();
+            if (block != null && block.getState() instanceof ShulkerBox shulker) {
+                PersistentDataContainer pdc = shulker.getPersistentDataContainer();
+                pdc.remove(lockIdKey);
+                pdc.remove(ownerKey);
+                pdc.remove(slotKey);
+                shulker.setCustomName(null);
+                shulker.update();
+            }
+        }
+
+        if (slots.isEmpty()) {
+            playerLocks.remove(uuid);
+        }
+
+        save();
+        return true;
+    }
+    // =================================================================
 
     public void load() {
         config = YamlConfiguration.loadConfiguration(dataFile);
@@ -262,6 +311,7 @@ public class LockManager {
         return info != null ? info.owner : null;
     }
 
+    // Hàm này đang trả về int. Nếu NewCommand gán cho UUID thì sẽ bị lỗi.
     public int getSlot(Block block) {
         UUID lockId = lockKey.get(new BlockKey(block.getLocation()));
         if (lockId == null) return -1;
